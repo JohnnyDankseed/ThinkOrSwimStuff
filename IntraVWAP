@@ -1,0 +1,53 @@
+##### IntraVWAP #####
+                     ##### By Zisa #####
+input Deviatons = {default Zero, One, Two, Three};
+
+def numDevDn1 = -1.0;
+def numDevUp1 = 1.0;
+def numDevDn2 = -2.0;
+def numDevUp2 = 2.0;
+def numDevDn3 = -3.0;
+def numDevUp3 = 3.0;
+def MainStart = 0930;
+def AHStart = 1600;
+def AHEnd = 2359;
+def PM = 0000;
+def periodIndx;
+if SecondsFromTime(MainStart) >= 0 and SecondsTillTime(AHStart) > 0 then {periodIndx = 0;}
+else if SecondsFromTime(AHStart) >= 0 and SecondsTillTime(AHEnd) > 0 then {periodIndx = 1;}
+else if SecondsFromTime(PM) >= 0 and SecondsTillTime(MainStart) > 0 then {periodIndx = 2;}
+else {periodIndx = periodIndx[1];}
+
+def isPeriodRolled = compoundValue(1, periodIndx != periodIndx[1], yes);
+
+def volumeSum;
+def volumeVwapSum;
+def volumeVwap2Sum;
+
+if (isPeriodRolled) {
+    volumeSum = volume;
+    volumeVwapSum = volume * vwap;
+    volumeVwap2Sum = volume * Sqr(vwap);
+} else {
+    volumeSum = CompoundValue(1, volumeSum[1] + volume, volume);
+    volumeVwapSum = CompoundValue(1, volumeVwapSum[1] + volume * vwap, volume * vwap);
+    volumeVwap2Sum = CompoundValue(1, volumeVwap2Sum[1] + volume * Sqr(vwap), volume * Sqr(vwap));
+}
+def price = volumeVwapSum / volumeSum;
+def deviation = Sqrt(Max(volumeVwap2Sum / volumeSum - Sqr(price), 0));
+
+plot VWAP = price;
+plot UpperBand1 = if Deviatons == Deviatons.One or Deviatons == Deviatons.Two or Deviatons == Deviatons.Three then price + numDevUp1 * deviation else Double.NaN;
+plot LowerBand1 = if Deviatons == Deviatons.One or Deviatons == Deviatons.Two or Deviatons == Deviatons.Three then price + numDevDn1 * deviation else Double.NaN;
+plot UpperBand2 = if Deviatons == Deviatons.Two or Deviatons == Deviatons.Three then price + numDevUp2 * deviation else Double.NaN;
+plot LowerBand2 = if Deviatons == Deviatons.Two or Deviatons == Deviatons.Three then price + numDevDn2 * deviation else Double.NaN;
+plot UpperBand3 = if Deviatons == Deviatons.Three then price + numDevUp3 * deviation else Double.NaN;
+plot LowerBand3 = if Deviatons == Deviatons.Three then price + numDevDn3 * deviation else Double.NaN;
+
+VWAP.SetDefaultColor(CreateColor(255, 200, 00));
+UpperBand1.SetDefaultColor(Color.CYAN);
+LowerBand1.SetDefaultColor(Color.MAGENTA);
+UpperBand2.SetDefaultColor(Color.CYAN);
+LowerBand2.SetDefaultColor(Color.MAGENTA);
+UpperBand3.SetDefaultColor(Color.CYAN);
+LowerBand3.SetDefaultColor(Color.MAGENTA);
