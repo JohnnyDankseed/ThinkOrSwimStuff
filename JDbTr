@@ -1,0 +1,117 @@
+##### JDbTr #####
+##### by zisa #####
+##### idea by jdank #####						
+input ShowEma = yes;
+input Price = close;
+input EMALength1 = 10;
+input EMALength2 = 50;
+input SMALength = 250;
+input Range = .618;
+input UseCurrentTime = yes;
+input SelectDifferentTime = AggregationPeriod.DAY;
+def TimePeriod = close(Period = SelectDifferentTime);
+input ShowChannel = yes;
+input ShowBarColor = yes;
+input BuySellBubble = yes;
+input Alert = No;#hint Alert:Turns on and off the alerts
+
+                 ##### MovingAverages #####
+plot EMA1 = ExpAverage(Price, EMALength1);
+plot EMA2 = ExpAverage(Price, EMALength2);
+plot SMA = if UseCurrentTime == yes then SimpleMovingAvg(length = SMALength) else if UseCurrentTime == no then SimpleMovingAvg(TimePeriod, SMALength) else Double.NaN;
+
+                ##### Calculations #####
+def ChannelBasis = ATR(SMALength * Range);
+def ChannelTop = SMA + ChannelBasis;
+def ChannelBottom = SMA - ChannelBasis;
+def ChannelRange = (open <= ChannelTop or close <= ChannelTop) and (open >= ChannelBottom or close >= ChannelBottom);
+def TrendDirection = if ChannelRange then 0 else if Price >= SMA then 1 else -1;
+
+plot TopChannel = if ShowChannel == yes then ChannelTop else Double.NaN;
+TopChannel.HideTitle();
+TopChannel.HideBubble();
+plot BottomChannel = if ShowChannel == yes then ChannelBottom else Double.NaN;
+BottomChannel.HideTitle();
+BottomChannel.HideBubble();
+
+def GoldenCross = Crosses(data1 = EMA2, data2 = SMA, direction = CrossingDirection.ABOVE);
+def DeathCross = Crosses(data1 = EMA2, data2 = SMA, direction = CrossingDirection.BELOW);
+AddChartBubble(Crosses(EMA2, SMA, CrossingDirection.ABOVE), SMA, "Golden Cross", CreateColor(255, 182, 53), yes);
+AddChartBubble(Crosses(EMA2, SMA, CrossingDirection.BELOW), SMA, "Death Cross", CreateColor(89, 00, 178), no);
+
+               ##### Conditions/Triggers #####
+
+def Buy_Trig = If(TrendDirection == 1 and EMA1 > EMA2, 1, 0);
+def Sell_Trig = If(TrendDirection == -1 and EMA1 < EMA2, 1, 0);
+def BuyClose_Trig = If(TrendDirection == 1 and EMA1 < EMA2, 1, 0);
+def SellClose_Trig = If(TrendDirection == -1 and EMA1 > EMA2, 1, 0);
+def Close_Trig = BuyClose_Trig or SellClose_Trig;
+
+def condition;
+if condition[1] != 1 and Buy_Trig == 1
+then {
+    condition = 1;
+} else {
+    if condition[1] != -1 and Sell_Trig == 1
+    then {
+        condition = -1;
+} else {
+        if condition[1] != 0 and Close_Trig == 1
+        then {
+            condition = 0;
+} else {
+            if condition[1] == Double.NaN
+            then {
+                condition = 0;
+} else {
+                condition = condition[1];
+}
+        }
+    }
+}
+
+def Buy = If (condition == 1 and condition[1] != 1, 1, 0);
+def Sell = If (condition == -1 and condition[1] != -1, 1, 0);
+def Close1 = If (condition[1] != 0 and Close_Trig == 1, 1, 0);
+
+AddChartBubble(BuySellBubble == yes and Buy == 1, "price location" = low, text = "BUY", color = CreateColor(00, 255, 00), up = no);
+AddChartBubble("time condition" = BuySellBubble == yes and Sell == 1, "price location" = high, text = "SELL", color = CreateColor(255, 00, 00));
+AddChartBubble("time condition" = BuySellBubble == yes and close1 == 1, text = "CLOSE", color = CreateColor(255, 106, 00), up = no, "price location" = close);
+ 
+EMA1.DefineColor("Green", CreateColor(00, 255, 00));
+EMA1.DefineColor("LightGreen", CreateColor(76, 255, 76));
+EMA1.DefineColor("Red", CreateColor(255, 00, 00));
+EMA1.DefineColor("LightRed", CreateColor(255, 76, 76));
+EMA1.DefineColor("Orange", CreateColor(255, 106, 00));
+EMA1.DefineColor("Default", Color.WHITE);
+
+EMA1.AssignValueColor(if ChannelRange then EMA1.Color("Orange") else if BuyClose_Trig == 1 then EMA1.Color("Orange") else if SellClose_Trig == 1 then EMA1.Color("Orange") else if TrendDirection == 1 then EMA1.Color("Green") else if TrendDirection == -1 then EMA1.Color("Red") else EMA1.Color("Default"));
+
+EMA2.SetLineWeight(2);
+EMA2.AssignValueColor(if ChannelRange then EMA1.Color("Orange") else if BuyClose_Trig == 1 then EMA1.Color("Orange") else if SellClose_Trig == 1 then EMA1.Color("Orange") else if TrendDirection == 1 then EMA1.Color("Green") else if TrendDirection == -1 then EMA1.Color("Red") else EMA1.Color("Default"));
+
+SMA.SetLineWeight(3);
+SMA.AssignValueColor(if TrendDirection == 0 then EMA1.Color("Orange") else if TrendDirection == 1 then EMA1.Color("Green") else if TrendDirection == -1 then EMA1.Color("Red") else EMA1.Color("Default"));
+
+
+TopChannel.AssignValueColor(if TrendDirection == 0 then EMA1.Color("Orange") else if TrendDirection == 1 then EMA1.Color("Green") else if TrendDirection == -1 then EMA1.Color("Red") else EMA1.Color("Default"));
+
+
+BottomChannel.AssignValueColor(if TrendDirection == 0 then EMA1.Color("Orange") else if TrendDirection == 1 then EMA1.Color("Green") else if TrendDirection == -1 then EMA1.Color("Red") else EMA1.Color("Default"));
+
+DefineGlobalColor("Green", CreateColor(00, 255, 00));
+DefineGlobalColor("LightGreen", CreateColor(76, 255, 76));
+DefineGlobalColor("Red", CreateColor(255, 00, 00));
+DefineGlobalColor("LightRed", CreateColor(255, 76, 76));
+DefineGlobalColor("Orange", CreateColor(255, 106, 00));
+
+AssignPriceColor(if TrendDirection == 0 then GlobalColor("Orange") else if TrendDirection == 1 and (open <= Close) then GlobalColor("Green") else if TrendDirection == 1 and (open > Close) then GlobalColor("LightGreen") else if TrendDirection == -1 and (open >= Close) then GlobalColor("Red") else if TrendDirection == -1 and (open < Close) then GlobalColor("LightRed") else Color.CURRENT);
+
+AddCloud(data1 = EMA1, data2 = EMA2, color1 = EMA1.Color("Green"), color2 = EMA1.Color("Red"));
+                  ##### Alerts #####
+
+Alert(condition = Buy == 1 and Alert == Yes, text = "BUY BUY BUY!", sound = Sound.Chimes, "alert type" = Alert.BAR);
+Alert(condition = Sell == 1 and Alert == Yes, text = "SELL SELL SELL!", sound = Sound.Chimes, "alert type" = Alert.BAR);
+Alert(condition = Close1 == 1 and Alert == Yes, text = "ACTION TIME HAS CLOSED!", sound = Sound.Chimes, "alert type" = Alert.BAR);
+Alert(condition = GoldenCross and Alert == Yes, text = "GOLDEN CROSS", sound = Sound.Chimes, "alert type" = Alert.BAR);
+Alert(condition = DeathCross and Alert == Yes, text = "DEATH CROSS", sound = Sound.Chimes, "alert type" = Alert.BAR);
