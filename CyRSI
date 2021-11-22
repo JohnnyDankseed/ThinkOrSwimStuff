@@ -1,0 +1,50 @@
+##### cyRSI #####
+##### by zisa #####
+##### idea by jdank #####
+declare lower;
+
+input Price = Close;
+input domcycle = 20;
+def cyclelength = domcycle / 2;
+def vibration = 10;
+def leveling = 10.0;
+def cyclicmemory = domcycle * 2;
+def torque = 2.0 / (vibration + 1);
+def phasinglag = (vibration - 1) / 2;
+def NetChgAvg = MovingAverage(AverageType.WILDERS, Price - Price[1], cyclelength);
+def TotChgAvg = MovingAverage(AverageType.WILDERS, AbsValue(Price - Price[1]), cyclelength);
+def ChgRatio = if TotChgAvg != 0 then NetChgAvg / TotChgAvg else 0;
+def rsi = 50 * (ChgRatio + 1);
+def crsi = torque * (2 * rsi - rsi[phasinglag]) + (1 - torque) * (if IsNaN(crsi[1]) then 0 else crsi[1]);
+
+
+
+def lmax = fold i = 0 to (cyclicmemory - 1) with dmax = -999999.0 do if (if IsNaN(crsi[i]) then -999999.0 else crsi[i]) > dmax then (if IsNaN(crsi[i]) then 0 else crsi[i]) else dmax;
+def lmin = fold j = 0 to (cyclicmemory - 1) with dmin = 999999.0 do if (if IsNaN(crsi[j]) then 999999.0 else crsi[j]) < dmin then (if IsNaN(crsi[j]) then 0 else crsi[j]) else dmin;
+
+def mstep = (lmax - lmin) / 100;
+def aperc = leveling / 100;
+
+
+plot db = fold steps = 0 to 100 with value = 0.0 do if ((fold m = 0 to (cyclicmemory - 1) with below = 0 do below + if(crsi[m] >= (if(below / cyclicmemory) >= aperc then lmin + (mstep * steps) else value), 1, 0)) / cyclicmemory) >= aperc then lmin + (mstep * steps) else value;
+
+plot ub = fold steps1 = 0 to 100 with value1 = 0.0 do if ((fold m1 = 0 to (cyclicmemory - 1) with above = 0 do above + if(crsi[m1] < lmax - (mstep * steps1), 1, 0)) / cyclicmemory) >= aperc then lmax - (mstep * steps1) else value1;
+
+plot cyrsi = crsi;
+
+plot OBLine = 70;
+plot OSLine = 30;
+OBLine.SetDefaultColor(CreateColor (181, 181, 181));
+OBLine.SetStyle(Curve.SHORT_DASH);
+OBLine.hideTitle();
+OBLine.hideBubble();
+OSLine.SetDefaultColor(CreateColor (181, 181, 181));
+OSLine.SetStyle(Curve.SHORT_DASH);
+OSLine.hideTitle();
+OSLine.hideBubble();
+cyrsi.setDefaultColor(CreateColor (214, 00, 251));
+db.SetDefaultColor(CreateColor (00, 188, 212));
+db.hideBubble();
+ub.hideBubble();
+ub.SetDefaultColor(CreateColor (00, 188, 212));
+AddCloud(data1 = ub, data2 = db, color1 = CreateColor(00,188,212), color2 = CreateColor(00, 188, 212));
